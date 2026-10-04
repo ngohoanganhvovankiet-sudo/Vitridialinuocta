@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Màng Lọc Vũ Trụ - Ôn Tập Địa Lí</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jura:wght@500;700&family=Roboto:wght@400;700&display=swap');
+
+        :root {
+            --neon-blue: #00d8ff;
+            --neon-green: #00ff66;
+            --neon-red: #ff2a2a;
+            --bg-glass: rgba(10, 15, 30, 0.85);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #020205;
+            color: #fff;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #bgCanvas, #fxCanvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+        #bgCanvas { z-index: 1; }
+        #fxCanvas { z-index: 5; pointer-events: none; }
+
+        .ui-layer {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .screen.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .glass-box {
+            background: var(--bg-glass);
+            border: 1px solid rgba(0, 216, 255, 0.4);
+            border-radius: 16px;
+            padding: 30px;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(0, 216, 255, 0.15);
+        }
+
+        h1 {
+            font-family: 'Jura', sans-serif;
+            font-size: 38px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px var(--neon-blue);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid var(--neon-blue);
+            color: #fff;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            outline: none;
+            text-align: center;
+            transition: box-shadow 0.2s;
+        }
+        input:focus { box-shadow: 0 0 15px rgba(0, 216, 255, 0.5); }
+
+        .btn-launch {
+            background: linear-gradient(45deg, #0055ff, var(--neon-blue));
+            border: none;
+            color: #000;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: 'Jura', sans-serif;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            width: 100%;
+            transition: transform 0.1s;
+            margin-top: 10px;
+        }
+        .btn-launch:active { transform: scale(0.95); }
+
+        .hud-top {
+            position: absolute;
+            top: 20px; left: 20px; right: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-family: 'Jura', sans-serif;
+            font-size: 24px;
+            color: var(--neon-blue);
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #dataCardContainer {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px;
+            padding-bottom: 100px; /* Space for action buttons */
+        }
+
+        .data-card {
+            width: 90%;
+            max-width: 400px;
+            background: linear-gradient(135deg, rgba(30,40,60,0.95), rgba(10,15,25,0.95));
+            border: 2px solid #555;
+            border-radius: 20px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.05);
+            animation: floatCard 4s ease-in-out infinite;
+        }
+
+        @keyframes floatCard {
+            0% { transform: translateY(0) rotateX(5deg); }
+            50% { transform: translateY(-12px) rotateX(-2deg); }
+            100% { transform: translateY(0) rotateX(5deg); }
+        }
+
+        .card-title {
+            font-family: 'Jura', sans-serif;
+            font-size: 16px;
+            color: var(--neon-blue);
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .statement-text {
+            font-size: 20px;
+            line-height: 1.6;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        /* Hiệu ứng khi xử lý thẻ bài */
+        .card-suck {
+            animation: suckIn 0.5s forwards cubic-bezier(0.6, -0.28, 0.735, 0.045);
+        }
+        @keyframes suckIn {
+            to { transform: scale(0) translateY(200px); opacity: 0; border-color: var(--neon-green); }
+        }
+
+        .card-explode {
+            animation: explodeOut 0.5s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes explodeOut {
+            50% { transform: scale(1.2); filter: brightness(2); }
+            100% { transform: scale(1.5); opacity: 0; filter: brightness(0); border-color: var(--neon-red); }
+        }
+
+        .card-error {
+            border-color: var(--neon-red) !important;
+            box-shadow: 0 0 30px var(--neon-red) !important;
+        }
+
+        .action-deck {
+            position: absolute;
+            bottom: 30px;
+            left: 0; width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            padding: 0 20px;
+            z-index: 20;
+        }
+
+        .action-btn {
+            flex: 1;
+            max-width: 180px;
+            height: 70px;
+            border-radius: 12px;
+            border: none;
+            font-family: 'Jura', sans-serif;
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.5);
+            transition: transform 0.1s, filter 0.1s;
+        }
+        .action-btn:active { transform: translateY(4px); filter: brightness(0.8); }
+
+        .btn-true {
+            background: linear-gradient(135deg, #009900, var(--neon-green));
+            border-bottom: 4px solid #005500;
+        }
+        .btn-false {
+            background: linear-gradient(135deg, #cc0000, var(--neon-red));
+            border-bottom: 4px solid #660000;
+        }
+
+        .shake { animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes screenShake {
+            10%, 90% { transform: translate3d(-3px, 0, 0); }
+            20%, 80% { transform: translate3d(3px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        .victory-text {
+            position: absolute;
+            top: 40%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-family: 'Jura', sans-serif;
+            font-size: 60px;
+            color: #fff;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0 0 20px #fff, 0 0 40px var(--neon-green), 0 0 60px var(--neon-blue);
+            z-index: 100;
+            white-space: nowrap;
+            transition: transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+        .victory-text.show { transform: translate(-50%, -50%) scale(1); }
+
+        .result-code {
+            background: #000;
+            padding: 15px;
+            border: 2px dashed var(--neon-blue);
+            color: var(--neon-blue);
+            font-family: monospace;
+            font-size: 24px;
+            margin: 20px 0;
+            border-radius: 8px;
+            letter-spacing: 3px;
+        }
+
+        /* Message Box Helper */
+        #msgBox {
+            position: absolute;
+            top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 0, 60, 0.9);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 200;
+            display: none;
+            box-shadow: 0 0 15px rgba(255,0,0,0.5);
+        }
+
+        @media (max-width: 480px) {
+            .statement-text { font-size: 17px; }
+            .action-btn { font-size: 18px; height: 60px; }
+            .victory-text { font-size: 35px; }
+            h1 { font-size: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Lớp Đồ họa -->
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="fxCanvas"></canvas>
+
+    <div id="msgBox">Thông báo</div>
+    <div class="victory-text" id="victoryMsg">CHIẾN THẮNG</div>
+
+    <div class="ui-layer">
+        <!-- MÀN HÌNH CHỜ (LOGIN) -->
+        <div class="screen active" id="login-screen">
+            <div class="glass-box">
+                <h1>Màng Lọc Vũ Trụ</h1>
+                <p style="color: #ccc; margin-bottom: 25px; line-height: 1.5; font-size: 15px;">
+                    Hệ thống Dữ liệu Địa lí đang bị nhiễu. <br>
+                    Nhiệm vụ: Ấn <b>SỰ THẬT</b> để thu thập kiến thức đúng, ấn <b>TIN GIẢ</b> để bắn hủy thông tin sai.
+                </p>
+                <input type="text" id="pilotName" placeholder="Tên Kỹ thuật viên" autocomplete="off">
+                <input type="text" id="pilotClass" placeholder="Số hiệu Lớp" autocomplete="off">
+                <button class="btn-launch" id="btnStart">KÍCH HOẠT (15 Phút)</button>
+            </div>
+        </div>
+
+        <!-- MÀN HÌNH CHƠI -->
+        <div class="screen" id="game-screen">
+            <div class="hud-top">
+                <span id="timerDisplay">15:00</span>
+                <span id="scoreDisplay">0/0</span>
+            </div>
+            
+            <div id="dataCardContainer">
+                <!-- Thẻ bài được sinh ra bằng JS để reset animation sạch sẽ -->
+            </div>
+
+            <div class="action-deck">
+                <button class="action-btn btn-true" id="btnTrue">
+                    ✅ SỰ THẬT
+                </button>
+                <button class="action-btn btn-false" id="btnFalse">
+                    💥 TIN GIẢ
+                </button>
+            </div>
+        </div>
+
+        <!-- MÀN HÌNH KẾT QUẢ -->
+        <div class="screen" id="result-screen">
+            <div class="glass-box">
+                <h1 id="resultTitle">BÁO CÁO</h1>
+                <p id="resultMsg" style="line-height: 1.6; font-size: 18px;"></p>
+                <div class="result-code" id="k12Code"></div>
+                <p style="color: var(--neon-green); font-size: 14px; margin-bottom: 15px;">
+                    (Hãy chụp lại màn hình này nộp trên K12 Online để nhận 0.5 điểm thưởng)
+                </p>
+                <button class="btn-launch" onclick="location.reload()">XỬ LÝ LẠI DỮ LIỆU</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Hàm hiển thị thông báo thay thế alert()
+        function showMsg(text) {
+            const m = document.getElementById('msgBox');
+            m.innerText = text;
+            m.style.display = 'block';
+            setTimeout(() => m.style.display = 'none', 3000);
+        }
+
+        // DỮ LIỆU GAME (Đã mã hóa các kiến thức hệ quy chiếu mới nhất làm SỰ THẬT)
+        const gameData = [
+            // SỰ THẬT (TRUE)
+            { text: "Điểm cực Bắc của nước ta nằm ở Lũng Cú - Tuyên Quang.", isTrue: true },
+            { text: "Điểm cực Nam của nước ta là Đất Mũi (Xóm Mũi) - Cà Mau.", isTrue: true },
+            { text: "Điểm cực Tây của nước ta là Sín Thầu (A Pa Chải) - Điện Biên.", isTrue: true },
+            { text: "Điểm cực Đông của nước ta là Mũi Đôi - Khánh Hòa.", isTrue: true },
+            { text: "Đường bờ biển nước ta kéo dài 3260 km từ Quảng Ninh đến An Giang.", isTrue: true },
+            { text: "Hai quần đảo xa bờ của nước ta là Hoàng Sa và Trường Sa.", isTrue: true },
+            { text: "Đảo có diện tích lớn nhất Việt Nam là Đảo Phú Quốc.", isTrue: true },
+            { text: "Đảo Phú Quốc hiện thuộc địa phận tỉnh An Giang.", isTrue: true },
+            { text: "Quần đảo Trường Sa thuộc tỉnh Khánh Hòa.", isTrue: true },
+            { text: "Quần đảo Hoàng Sa thuộc Thành phố Đà Nẵng.", isTrue: true },
+            { text: "Nước ta nhiều thiên tai do tác động của nội chí tuyến, giáp biển và gió mùa.", isTrue: true },
+            { text: "Nằm gần trung tâm ĐNA tạo động lực phát triển kinh tế nhưng có áp lực cạnh tranh khốc liệt.", isTrue: true },
+            { text: "Nằm ở ngã tư đường giao thông quốc tế rất thuận lợi để giao lưu trao đổi hàng hóa.", isTrue: true },
+            { text: "Nước ta nằm gần vành đai sinh khoáng Thái Bình Dương nên khoáng sản đa dạng.", isTrue: true },
+            { text: "Sinh vật đa dạng phong phú do nước ta nằm trên đường di lưu di cư của sinh vật.", isTrue: true },
+            { text: "Biên giới quốc gia trên biển chính là ranh giới ngoài của lãnh hải.", isTrue: true },
+            { text: "Việt Nam giáp với 7 quốc gia trên biển.", isTrue: true },
+            { text: "Việt Nam giáp với 3 quốc gia trên đất liền.", isTrue: true },
+            { text: "Tỉnh nằm ở ngã ba Đông Dương (Campuchia - Lào - VN) là Quảng Ngãi.", isTrue: true },
+            { text: "Điện Biên là tỉnh duy nhất nằm ở ngã ba Việt Nam - Lào - Trung Quốc.", isTrue: true },
+            { text: "Quảng Ninh là tỉnh vừa giáp Trung Quốc trên đất liền vừa giáp trên biển.", isTrue: true },
+            { text: "An Giang là tỉnh vừa giáp Campuchia trên biển vừa giáp trên đất liền.", isTrue: true },
+            { text: "Lãnh hải là vùng biển thuộc chủ quyền quốc gia.", isTrue: true },
+            { text: "Vùng tiếp giáp lãnh hải là vùng biển để thực hiện các biện pháp an ninh.", isTrue: true },
+            { text: "Vùng đặc quyền kinh tế hợp với lãnh hải rộng 200 hải lí.", isTrue: true },
+            { text: "Thềm lục địa là vùng đáy biển và lòng đất dưới đáy biển.", isTrue: true },
+
+            // TIN GIẢ (FALSE) - Đánh lừa bằng kiến thức cũ hoặc sai lệch (Thông tin nhiễu)
+            { text: "Điểm cực Bắc của nước ta nằm ở Lũng Cú - Hà Giang.", isTrue: false }, 
+            { text: "Tỉnh nằm ở ngã ba Đông Dương (Campuchia - Lào - VN) là Kon Tum.", isTrue: false }, 
+            { text: "Đảo Phú Quốc thuộc địa phận tỉnh Kiên Giang.", isTrue: false },
+            { text: "Đảo Phú Quốc thuộc địa phận tỉnh Khánh Hòa.", isTrue: false },
+            { text: "Đường bờ biển nước ta kéo dài từ Quảng Ninh đến Kiên Giang.", isTrue: false }, 
+            { text: "Vùng đặc quyền kinh tế chỉ rộng 12 hải lí tính từ đường cơ sở.", isTrue: false },
+            { text: "Việt Nam không tiếp giáp với quốc gia nào trên biển.", isTrue: false },
+            { text: "Nước ta giáp với 5 quốc gia trên đất liền.", isTrue: false },
+            { text: "Điểm cực Nam của nước ta là Hà Tiên - Kiên Giang.", isTrue: false },
+            { text: "Quần đảo Trường Sa thuộc địa phận tỉnh An Giang.", isTrue: false },
+            { text: "Vùng tiếp giáp lãnh hải là vùng đáy biển và lòng đất dưới đáy biển.", isTrue: false }
+        ];
+
+        // Shuffle Data
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Variables
+        let playQueue = [];
+        let currentIndex = 0;
+        let score = 0;
+        let timerInterval;
+        let timeLeft = 15 * 60; // 15 phút
+        let isProcessing = false;
+        
+        // DOM Elements
+        const screens = {
+            login: document.getElementById('login-screen'),
+            game: document.getElementById('game-screen'),
+            result: document.getElementById('result-screen')
+        };
+        const uiElements = {
+            name: document.getElementById('pilotName'),
+            cls: document.getElementById('pilotClass'),
+            timer: document.getElementById('timerDisplay'),
+            score: document.getElementById('scoreDisplay'),
+            container: document.getElementById('dataCardContainer'),
+            victory: document.getElementById('victoryMsg')
+        };
+
+        function switchScreen(screenId) {
+            Object.values(screens).forEach(s => s.classList.remove('active'));
+            screens[screenId].classList.add('active');
+        }
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioContext();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+                
+                if (type === 'suck') {
+                    // Âm thanh kéo về (Sự thật)
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                } else if (type === 'laser') {
+                    // Âm thanh bắn nổ (Tin giả)
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'error') {
+                    // Âm thanh rung lắc lỗi
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.linearRampToValueAtTime(80, now + 0.4);
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now); osc.stop(now + 0.4);
+                } else if (type === 'boom') {
+                    // Nổ BigBang
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 1.0);
+                    gain.gain.setValueAtTime(1.0, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+                    osc.start(now); osc.stop(now + 1.5);
+                }
+            } catch(e) {
+                console.log("Audio skipped due to browser policy");
+            }
+        }
+
+        document.getElementById('btnStart').addEventListener('click', () => {
+            const name = uiElements.name.value.trim();
+            const cls = uiElements.cls.value.trim();
+            if(!name || !cls) {
+                showMsg("Vui lòng nhập Họ tên và Lớp để kích hoạt!");
+                return;
+            }
+            
+            // Khởi tạo âm thanh rỗng để vượt qua rào cản Autoplay của trình duyệt
+            playSound('init');
+            
+            playQueue = shuffle([...gameData]); // Trộn ngẫu nhiên câu hỏi
+            currentIndex = 0;
+            score = 0;
+            timeLeft = 15 * 60;
+            
+            updateScore();
+            startTimer();
+            switchScreen('game');
+            spawnCard();
+        });
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                const s = (timeLeft % 60).toString().padStart(2, '0');
+                uiElements.timer.innerText = `${m}:${s}`;
+                if (timeLeft <= 30) uiElements.timer.style.color = "var(--neon-red)";
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function updateScore() {
+            uiElements.score.innerText = `${score} / ${playQueue.length}`;
+        }
+
+        // Sinh thẻ bài mới hoàn toàn để reset mọi Animation
+        function spawnCard() {
+            isProcessing = false;
+            uiElements.container.innerHTML = ''; // Xóa thẻ cũ
+            
+            const item = playQueue[currentIndex];
+            const card = document.createElement('div');
+            card.className = 'data-card';
+            card.id = 'currentCard';
+            card.innerHTML = `
+                <div class="card-title">PHÂN TÍCH DỮ LIỆU...</div>
+                <div class="statement-text">${item.text}</div>
+            `;
+            uiElements.container.appendChild(card);
+        }
+
+        // Xử lý sự kiện bấm nút
+        document.getElementById('btnTrue').addEventListener('click', () => processAction(true));
+        document.getElementById('btnFalse').addEventListener('click', () => processAction(false));
+
+        function processAction(isTrueAction) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            const item = playQueue[currentIndex];
+            const isActuallyTrue = item.isTrue;
+            const card = document.getElementById('currentCard');
+
+            // Tính toán tọa độ bắn hiệu ứng Canvas
+            const rect = card.getBoundingClientRect();
+            const targetX = rect.left + rect.width / 2;
+            const targetY = rect.top + rect.height / 2;
+            const startX = window.innerWidth / 2;
+            const startY = window.innerHeight;
+
+            if (isTrueAction === isActuallyTrue) {
+                // ĐÚNG
+                score++;
+                if (isTrueAction) {
+                    // Hút về
+                    playSound('suck');
+                    card.classList.add('card-suck');
+                    activeLasers.push({ x1: targetX, y1: targetY, x2: startX, y2: startY, color: '#00ff66', life: 15 });
+                } else {
+                    // Bắn nổ
+                    playSound('laser');
+                    card.classList.add('card-explode');
+                    activeLasers.push({ x1: startX, y1: startY, x2: targetX, y2: targetY, color: '#ff2a2a', life: 10 });
+                    setTimeout(() => createExplosion(targetX, targetY, '#ff2a2a'), 100);
+                }
+            } else {
+                // SAI
+                playSound('error');
+                card.classList.add('card-error');
+                screens.game.classList.add('shake');
+                setTimeout(() => screens.game.classList.remove('shake'), 400);
+                
+                const title = card.querySelector('.card-title');
+                title.innerText = isActuallyTrue ? "CẢNH BÁO: ĐÂY LÀ SỰ THẬT!" : "CẢNH BÁO: ĐÂY LÀ TIN GIẢ!";
+                title.style.color = "var(--neon-red)";
+            }
+
+            updateScore();
+            
+            // Trễ 0.8s để xem hiệu ứng rồi qua câu
+            setTimeout(() => {
+                currentIndex++;
+                if (currentIndex >= playQueue.length) {
+                    endGame();
+                } else {
+                    spawnCard();
+                }
+            }, 800);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            switchScreen('result');
+            
+            const total = playQueue.length;
+            const code = `K12-GEO-${Math.floor(1000 + Math.random()*9000)}`;
+            document.getElementById('k12Code').innerText = `MÃ HỆ THỐNG: ${code}`;
+            
+            const titleEl = document.getElementById('resultTitle');
+            const msgEl = document.getElementById('resultMsg');
+
+            if (score === total) {
+                // Ẩn màn hình kết quả tạm thời để chiếu Big Bang và Mưa Sao Băng
+                screens.result.classList.remove('active'); 
+                triggerBigBang();
+                
+                setTimeout(() => {
+                    screens.result.classList.add('active');
+                    titleEl.innerText = "THANH TRỪNG THÀNH CÔNG";
+                    titleEl.style.color = "var(--neon-green)";
+                    msgEl.innerHTML = `Đặc vụ <b>${uiElements.name.value}</b> (Lớp ${uiElements.cls.value})<br>Đã dọn sạch 100% rác không gian và tin giả.<br>Điểm tuyệt đối: ${score}/${total}<br><br><b style="color: var(--neon-green); font-size: 26px; text-shadow: 0 0 10px var(--neon-green);">THƯỞNG: +0.5 ĐIỂM</b>`;
+                }, 5000);
+            } else {
+                titleEl.innerText = "HOÀN THÀNH NHIỆM VỤ";
+                titleEl.style.color = "var(--neon-blue)";
+                msgEl.innerHTML = `Đặc vụ <b>${uiElements.name.value}</b> (Lớp ${uiElements.cls.value})<br>Hệ thống vẫn còn lọt tin giả vào Trái Đất.<br>Điểm của bạn: ${score}/${total}<br><br><b style="color: yellow; font-size: 24px; text-shadow: 0 0 10px yellow;">THƯỞNG: +0.25 ĐIỂM</b>`;
+            }
+        }
+
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const fxCanvas = document.getElementById('fxCanvas');
+        const fxCtx = fxCanvas.getContext('2d');
+
+        let w, h;
+        let stars = [];
+        let particles = [];
+        let activeLasers = [];
+        let meteors = [];
+        let isBigBang = false;
+        let isMeteorShower = false;
+
+        function resize() {
+            w = bgCanvas.width = fxCanvas.width = window.innerWidth;
+            h = bgCanvas.height = fxCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Khởi tạo các vì sao
+        for(let i=0; i<120; i++) {
+            stars.push({
+                x: Math.random() * w, y: Math.random() * h,
+                size: Math.random() * 2, speed: Math.random() * 0.5 + 0.1,
+                color: Math.random() > 0.8 ? '#00d8ff' : '#ffffff'
+            });
+        }
+
+        function createExplosion(x, y, color) {
+            for(let i=0; i<30; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12,
+                    size: Math.random() * 3 + 1,
+                    color: color,
+                    life: 1.0, decay: Math.random() * 0.05 + 0.02
+                });
+            }
+        }
+
+        function triggerBigBang() {
+            isBigBang = true;
+            isMeteorShower = true;
+            uiElements.victory.classList.add('show');
+            playSound('boom');
+            
+            for(let i=0; i<800; i++) {
+                particles.push({
+                    x: w/2, y: h/2,
+                    vx: (Math.random() - 0.5) * 35, vy: (Math.random() - 0.5) * 35,
+                    size: Math.random() * 4 + 1,
+                    color: `hsl(${Math.random() * 360}, 100%, 60%)`,
+                    life: 1.0, decay: Math.random() * 0.01 + 0.003
+                });
+            }
+            
+            setTimeout(() => {
+                uiElements.victory.classList.remove('show');
+                isBigBang = false;
+                isMeteorShower = false;
+                particles = [];
+                meteors = [];
+            }, 5000);
+        }
+
+        function renderLoop() {
+            // Vẽ nền
+            bgCtx.fillStyle = isBigBang ? 'rgba(0,0,0,0.2)' : '#020205';
+            bgCtx.fillRect(0, 0, w, h);
+            
+            if(!isBigBang) {
+                stars.forEach(s => {
+                    bgCtx.fillStyle = s.color;
+                    bgCtx.beginPath();
+                    bgCtx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+                    bgCtx.fill();
+                    s.y += s.speed;
+                    if(s.y > h) { s.y = 0; s.x = Math.random() * w; }
+                });
+            }
+
+            // Xóa Canvas hiệu ứng
+            fxCtx.clearRect(0, 0, w, h);
+            
+            // Vẽ Tia Laser
+            for(let i = activeLasers.length - 1; i >= 0; i--) {
+                let l = activeLasers[i];
+                fxCtx.beginPath();
+                fxCtx.moveTo(l.x1, l.y1);
+                fxCtx.lineTo(l.x2, l.y2);
+                fxCtx.strokeStyle = l.color;
+                fxCtx.lineWidth = 6;
+                fxCtx.stroke();
+                
+                fxCtx.beginPath();
+                fxCtx.moveTo(l.x1, l.y1);
+                fxCtx.lineTo(l.x2, l.y2);
+                fxCtx.strokeStyle = '#fff';
+                fxCtx.lineWidth = 2;
+                fxCtx.stroke();
+
+                l.life--;
+                if(l.life <= 0) activeLasers.splice(i, 1);
+            }
+
+            // Vẽ Hạt vụn nổ (Particles)
+            for(let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= p.decay;
+                
+                if(p.life > 0) {
+                    fxCtx.globalAlpha = p.life;
+                    fxCtx.fillStyle = p.color;
+                    fxCtx.beginPath();
+                    fxCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                    fxCtx.fill();
+                } else {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Vẽ Mưa sao băng (Meteors)
+            if (isMeteorShower && Math.random() < 0.25) {
+                meteors.push({
+                    x: Math.random() * w + w/2,
+                    y: -50,
+                    length: Math.random() * 100 + 50,
+                    speed: Math.random() * 25 + 15
+                });
+            }
+
+            fxCtx.shadowBlur = 10;
+            fxCtx.shadowColor = '#fff';
+            for (let i = meteors.length - 1; i >= 0; i--) {
+                let m = meteors[i];
+                fxCtx.beginPath();
+                fxCtx.moveTo(m.x, m.y);
+                fxCtx.lineTo(m.x + m.length, m.y - m.length);
+                fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                fxCtx.lineWidth = 2.5;
+                fxCtx.stroke();
+                
+                m.x -= m.speed;
+                m.y += m.speed;
+
+                if (m.y > h + 100 || m.x < -100) {
+                    meteors.splice(i, 1);
+                }
+            }
+            fxCtx.shadowBlur = 0;
+
+            fxCtx.globalAlpha = 1.0;
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        // Bắt đầu vòng lặp vẽ
+        renderLoop();
+    </script>
+</body>
+</html>
